@@ -9,12 +9,12 @@ COLORS = {
     "border": "#2E3A48",
     "text": "#E8EEF4",
     "muted": "#8B9AAB",
-    "accent": "#1F8A70",
-    "accent_hover": "#176B57",
+    "accent": "#2F6FED",
+    "accent_hover": "#2458C4",
     "danger": "#C44B4B",
     "danger_hover": "#A33C3C",
     "warning": "#C9A227",
-    "success": "#2E9E6B",
+    "success": "#3B82F6",
     "idle": "#5C6B7A",
 }
 

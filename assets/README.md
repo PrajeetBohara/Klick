@@ -1,8 +1,18 @@
 # Brand assets
-#
-# text_logo.png  → shown in the app header
-# klick_logo.png → used as the window / taskbar icon
-#
-# Header size defaults (edit in app/ui/logo.py):
-#   HEADER_LOGO_HEIGHT = 56
-#   HEADER_LOGO_MAX_WIDTH = 280
+
+| File | Purpose |
+|------|---------|
+| `text_logo.png` | App header logo (transparent padding is trimmed automatically) |
+| `klick_logo.png` | Window title bar and taskbar icon |
+| `klick_logo.ico` | Optional generated Windows icon (created at runtime if needed) |
+
+## Header size
+
+Edit defaults in `app/ui/logo.py`:
+
+```python
+HEADER_LOGO_HEIGHT = 56
+HEADER_LOGO_MAX_WIDTH = 280
+```
+
+Or pass values when creating the logo widget in `app/main_window.py`.

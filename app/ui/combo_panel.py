@@ -10,7 +10,16 @@ from pynput.mouse import Controller as MouseController
 from app.engines.combo import ComboConfig, ComboStep
 from app.ui.interval_controls import AutoStopBlock, IntervalBlock
 from app.ui.theme import COLORS, FONTS
-from app.ui.widgets import field_label, int_entry, safe_float, safe_int, section_label, ToolTip
+from app.ui.widgets import (
+    ToolTip,
+    field_label,
+    hide_widget,
+    int_entry,
+    safe_float,
+    safe_int,
+    section_label,
+    set_entry_text,
+)
 from app.utils.timing import AutoStopConfig, IntervalConfig
 
 
@@ -205,12 +214,11 @@ class ComboPanel(ctk.CTkFrame):
         )
         self.step_position.pack(fill="x", pady=(6, 8))
         self.step_position.set("Current Cursor")
-        coord_row = ctk.CTkFrame(self.pos_fields, fg_color="transparent")
-        coord_row.pack(fill="x")
-        self.step_x = self._coord(coord_row, "X", "0")
-        self.step_y = self._coord(coord_row, "Y", "0")
+        self.step_coord_row = ctk.CTkFrame(self.pos_fields, fg_color="transparent")
+        self.step_x = self._coord(self.step_coord_row, "X", "0")
+        self.step_y = self._coord(self.step_coord_row, "Y", "0")
         self.pick_btn = ctk.CTkButton(
-            coord_row,
+            self.step_coord_row,
             text="Pick",
             width=80,
             height=34,
@@ -262,15 +270,14 @@ class ComboPanel(ctk.CTkFrame):
         )
         self.repeat_mode.pack(fill="x", pady=(6, 0))
         self.repeat_mode.set("Once")
-        count_col = ctk.CTkFrame(repeat_row, fg_color="transparent")
-        count_col.pack(side="left", padx=(12, 0))
-        field_label(count_col, "Count").pack(anchor="w")
-        self.repeat_count = int_entry(count_col, width=90, default="1")
+        self.count_col = ctk.CTkFrame(repeat_row, fg_color="transparent")
+        field_label(self.count_col, "Count").pack(anchor="w")
+        self.repeat_count = int_entry(self.count_col, width=90, default="1")
         self.repeat_count.pack(pady=(6, 0))
-        delay_col = ctk.CTkFrame(repeat_row, fg_color="transparent")
-        delay_col.pack(side="left", padx=(12, 0))
-        field_label(delay_col, "Start delay (s)").pack(anchor="w")
-        self.start_delay = int_entry(delay_col, width=90, default="2")
+        self._delay_col = ctk.CTkFrame(repeat_row, fg_color="transparent")
+        self._delay_col.pack(side="left", padx=(12, 0))
+        field_label(self._delay_col, "Start delay (s)").pack(anchor="w")
+        self.start_delay = int_entry(self._delay_col, width=90, default="2")
         self.start_delay.pack(pady=(6, 0))
 
         self.auto_stop_block = AutoStopBlock(scroll)
@@ -342,29 +349,37 @@ class ComboPanel(ctk.CTkFrame):
             self.wait_fields.pack(fill="x")
 
     def _on_step_position(self, value: str) -> None:
-        state = "normal" if value == "Fixed Point" else "disabled"
-        self.step_x.configure(state=state)
-        self.step_y.configure(state=state)
-        self.pick_btn.configure(state=state)
+        hide_widget(self.step_coord_row)
+        if value == "Fixed Point":
+            self.step_coord_row.pack(fill="x")
+            self.step_x.configure(state="normal")
+            self.step_y.configure(state="normal")
+            self.pick_btn.configure(state="normal")
 
     def _on_repeat_mode(self, value: str) -> None:
-        self.repeat_count.configure(
-            state="normal" if value == "Fixed Count" else "disabled"
-        )
+        hide_widget(self.count_col)
+        hide_widget(self._delay_col)
+        if value == "Fixed Count":
+            self.count_col.pack(side="left", padx=(12, 0))
+            self.repeat_count.configure(state="normal")
+        self._delay_col.pack(side="left", padx=(12, 0))
 
     def _pick_position(self) -> None:
+        if self.step_position.get() != "Fixed Point":
+            return
         self.pick_btn.configure(text="…", state="disabled")
         self.after(1200, self._finish_pick)
 
     def _finish_pick(self) -> None:
         x, y = self._mouse.position
-        self.step_x.configure(state="normal")
-        self.step_y.configure(state="normal")
-        self.step_x.delete(0, "end")
-        self.step_x.insert(0, str(int(x)))
-        self.step_y.delete(0, "end")
-        self.step_y.insert(0, str(int(y)))
-        self.pick_btn.configure(text="Pick", state="normal")
+        set_entry_text(self.step_x, str(int(x)))
+        set_entry_text(self.step_y, str(int(y)))
+        if self.step_position.get() == "Fixed Point":
+            self.step_x.configure(state="normal")
+            self.step_y.configure(state="normal")
+            self.pick_btn.configure(text="Pick", state="normal")
+        else:
+            self.pick_btn.configure(text="Pick", state="disabled")
 
     def _add_step(self) -> None:
         action = self.step_action.get().lower()
@@ -470,6 +485,7 @@ class ComboPanel(ctk.CTkFrame):
             IntervalConfig.from_dict(s.get("interval", {}))
         )
         repeat = s.get("repeat_mode", "once")
+        set_entry_text(self.repeat_count, str(s.get("repeat_count", 1)))
         if repeat == "count":
             self.repeat_mode.set("Fixed Count")
             self._on_repeat_mode("Fixed Count")
@@ -479,10 +495,7 @@ class ComboPanel(ctk.CTkFrame):
         else:
             self.repeat_mode.set("Once")
             self._on_repeat_mode("Once")
-        self.repeat_count.delete(0, "end")
-        self.repeat_count.insert(0, str(s.get("repeat_count", 1)))
-        self.start_delay.delete(0, "end")
-        self.start_delay.insert(0, str(s.get("start_delay", 2.0)))
+        set_entry_text(self.start_delay, str(s.get("start_delay", 2.0)))
         self.auto_stop_block.load_config(
             AutoStopConfig.from_dict(s.get("auto_stop", {}))
         )

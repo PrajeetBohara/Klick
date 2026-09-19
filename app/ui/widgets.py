@@ -128,3 +128,22 @@ class ToolTip:
             except Exception:
                 pass
             self._tip = None
+
+
+def set_entry_text(entry: ctk.CTkEntry, value: str) -> None:
+    """Write to an entry even if it is currently disabled."""
+    previous = str(entry.cget("state"))
+    entry.configure(state="normal")
+    entry.delete(0, "end")
+    entry.insert(0, value)
+    entry.configure(state=previous)
+
+
+def show_widget(widget: Any, **pack_kwargs: Any) -> None:
+    if not widget.winfo_manager():
+        widget.pack(**pack_kwargs)
+
+
+def hide_widget(widget: Any) -> None:
+    if widget.winfo_manager():
+        widget.pack_forget()

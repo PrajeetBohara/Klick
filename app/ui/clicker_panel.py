@@ -10,7 +10,17 @@ from pynput.mouse import Controller as MouseController
 from app.engines.clicker import ClickerConfig
 from app.ui.interval_controls import AutoStopBlock, IntervalBlock
 from app.ui.theme import COLORS, FONTS
-from app.ui.widgets import field_label, int_entry, safe_float, safe_int, section_label, ToolTip
+from app.ui.widgets import (
+    ToolTip,
+    field_label,
+    hide_widget,
+    int_entry,
+    safe_float,
+    safe_int,
+    section_label,
+    set_entry_text,
+    show_widget,
+)
 from app.utils.timing import AutoStopConfig, IntervalConfig
 
 
@@ -64,11 +74,14 @@ class ClickerPanel(ctk.CTkFrame):
         self.interval_block.pack(fill="x", pady=(0, 12))
 
         # Mouse / scroll options
-        options_box = ctk.CTkFrame(scroll, fg_color=COLORS["surface"], corner_radius=12)
-        options_box.pack(fill="x", pady=(0, 12))
-        options_inner = ctk.CTkFrame(options_box, fg_color="transparent")
+        self.options_box = ctk.CTkFrame(scroll, fg_color=COLORS["surface"], corner_radius=12)
+        self.options_box.pack(fill="x", pady=(0, 12))
+        options_inner = ctk.CTkFrame(self.options_box, fg_color="transparent")
         options_inner.pack(fill="x", padx=16, pady=14)
-        section_label(options_inner, "Mouse Options").pack(anchor="w")
+        self.options_title = section_label(options_inner, "Click Options")
+        self.options_title.pack(anchor="w")
+        self.options_hint = field_label(options_inner, "Button and click type for each action")
+        self.options_hint.pack(anchor="w", pady=(2, 0))
 
         self.click_options = ctk.CTkFrame(options_inner, fg_color="transparent")
         self.click_options.pack(fill="x", pady=(10, 0))
@@ -134,11 +147,16 @@ class ClickerPanel(ctk.CTkFrame):
         self.scroll_amount.pack(pady=(6, 0))
 
         # Position
-        pos_box = ctk.CTkFrame(scroll, fg_color=COLORS["surface"], corner_radius=12)
-        pos_box.pack(fill="x", pady=(0, 12))
-        pos_inner = ctk.CTkFrame(pos_box, fg_color="transparent")
+        self.pos_box = ctk.CTkFrame(scroll, fg_color=COLORS["surface"], corner_radius=12)
+        self.pos_box.pack(fill="x", pady=(0, 12))
+        pos_inner = ctk.CTkFrame(self.pos_box, fg_color="transparent")
         pos_inner.pack(fill="x", padx=16, pady=14)
-        section_label(pos_inner, "Cursor Position").pack(anchor="w")
+        self.pos_title = section_label(pos_inner, "Cursor Position")
+        self.pos_title.pack(anchor="w")
+        self.pos_hint = field_label(
+            pos_inner, "Where each click happens (also used when scrolling at a point)"
+        )
+        self.pos_hint.pack(anchor="w", pady=(2, 0))
         self.position_mode = ctk.CTkSegmentedButton(
             pos_inner,
             values=["Current Cursor", "Fixed Point"],
@@ -153,12 +171,11 @@ class ClickerPanel(ctk.CTkFrame):
         self.position_mode.pack(fill="x", pady=(10, 12))
         self.position_mode.set("Current Cursor")
 
-        coord_row = ctk.CTkFrame(pos_inner, fg_color="transparent")
-        coord_row.pack(fill="x")
-        self.fixed_x = self._coord_entry(coord_row, "X", "0")
-        self.fixed_y = self._coord_entry(coord_row, "Y", "0")
+        self.coord_row = ctk.CTkFrame(pos_inner, fg_color="transparent")
+        self.fixed_x = self._coord_entry(self.coord_row, "X", "0")
+        self.fixed_y = self._coord_entry(self.coord_row, "Y", "0")
         self.pick_btn = ctk.CTkButton(
-            coord_row,
+            self.coord_row,
             text="Pick Position",
             width=120,
             height=34,
@@ -184,6 +201,10 @@ class ClickerPanel(ctk.CTkFrame):
         repeat_inner = ctk.CTkFrame(repeat_box, fg_color="transparent")
         repeat_inner.pack(fill="x", padx=16, pady=14)
         section_label(repeat_inner, "Repeat & Delay").pack(anchor="w")
+        self.repeat_hint = field_label(
+            repeat_inner, "Unlimited runs until Stop / Auto Stop. Fixed Count uses Count."
+        )
+        self.repeat_hint.pack(anchor="w", pady=(2, 0))
         repeat_row = ctk.CTkFrame(repeat_inner, fg_color="transparent")
         repeat_row.pack(fill="x", pady=(10, 0))
 
@@ -204,10 +225,9 @@ class ClickerPanel(ctk.CTkFrame):
         self.repeat_mode.pack(fill="x", pady=(6, 0))
         self.repeat_mode.set("Unlimited")
 
-        count_col = ctk.CTkFrame(repeat_row, fg_color="transparent")
-        count_col.pack(side="left", padx=(12, 0))
-        field_label(count_col, "Count").pack(anchor="w")
-        self.repeat_count = int_entry(count_col, width=90, default="10")
+        self.count_col = ctk.CTkFrame(repeat_row, fg_color="transparent")
+        field_label(self.count_col, "Count").pack(anchor="w")
+        self.repeat_count = int_entry(self.count_col, width=90, default="10")
         self.repeat_count.pack(pady=(6, 0))
 
         delay_col = ctk.CTkFrame(repeat_row, fg_color="transparent")
@@ -215,6 +235,8 @@ class ClickerPanel(ctk.CTkFrame):
         field_label(delay_col, "Start delay (s)").pack(anchor="w")
         self.start_delay = int_entry(delay_col, width=90, default="0")
         self.start_delay.pack(pady=(6, 0))
+        self._delay_col = delay_col
+        self._repeat_row = repeat_row
 
         self.auto_stop_block = AutoStopBlock(scroll)
         self.auto_stop_block.pack(fill="x", pady=(0, 12))
@@ -267,42 +289,66 @@ class ClickerPanel(ctk.CTkFrame):
         return entry
 
     def _on_action(self, value: str) -> None:
-        if value == "Scroll":
-            self.click_options.pack_forget()
-            self.scroll_options.pack(fill="x")
+        is_scroll = value == "Scroll"
+        if is_scroll:
+            hide_widget(self.click_options)
+            show_widget(self.scroll_options, fill="x")
+            self.options_title.configure(text="SCROLL OPTIONS")
+            self.options_hint.configure(
+                text="Direction and wheel notches for each scroll"
+            )
+            self.pos_hint.configure(
+                text="Scroll happens at the current cursor, or move to a fixed point first"
+            )
             self.start_btn.configure(text="Start Scrolling")
             self.interval_block.set_apply_after("each scroll")
+            self.repeat_hint.configure(
+                text="Unlimited scrolls until Stop / Auto Stop. Fixed Count = number of scrolls."
+            )
         else:
-            self.scroll_options.pack_forget()
-            self.click_options.pack(fill="x", pady=(10, 0))
+            hide_widget(self.scroll_options)
+            show_widget(self.click_options, fill="x", pady=(10, 0))
+            self.options_title.configure(text="CLICK OPTIONS")
+            self.options_hint.configure(text="Button and click type for each action")
+            self.pos_hint.configure(text="Where each click happens")
             self.start_btn.configure(text="Start Clicking")
             self.interval_block.set_apply_after("each click")
+            self.repeat_hint.configure(
+                text="Unlimited runs until Stop / Auto Stop. Fixed Count uses Count."
+            )
 
     def _on_position_mode(self, value: str) -> None:
-        enabled = value == "Fixed Point"
-        state = "normal" if enabled else "disabled"
-        self.fixed_x.configure(state=state)
-        self.fixed_y.configure(state=state)
-        self.pick_btn.configure(state=state)
+        hide_widget(self.coord_row)
+        if value == "Fixed Point":
+            self.coord_row.pack(fill="x", before=self.cursor_label)
+            self.fixed_x.configure(state="normal")
+            self.fixed_y.configure(state="normal")
+            self.pick_btn.configure(state="normal")
 
     def _on_repeat_mode(self, value: str) -> None:
-        self.repeat_count.configure(
-            state="normal" if value == "Fixed Count" else "disabled"
-        )
+        hide_widget(self.count_col)
+        hide_widget(self._delay_col)
+        if value == "Fixed Count":
+            self.count_col.pack(side="left", padx=(12, 0))
+            self.repeat_count.configure(state="normal")
+        self._delay_col.pack(side="left", padx=(12, 0))
 
     def _start_pick(self) -> None:
+        if self.position_mode.get() != "Fixed Point":
+            return
         self.pick_btn.configure(text="Capturing…", state="disabled")
         self.after(1200, self._finish_pick)
 
     def _finish_pick(self) -> None:
         x, y = self._mouse.position
-        self.fixed_x.configure(state="normal")
-        self.fixed_y.configure(state="normal")
-        self.fixed_x.delete(0, "end")
-        self.fixed_x.insert(0, str(int(x)))
-        self.fixed_y.delete(0, "end")
-        self.fixed_y.insert(0, str(int(y)))
-        self.pick_btn.configure(text="Pick Position", state="normal")
+        set_entry_text(self.fixed_x, str(int(x)))
+        set_entry_text(self.fixed_y, str(int(y)))
+        if self.position_mode.get() == "Fixed Point":
+            self.fixed_x.configure(state="normal")
+            self.fixed_y.configure(state="normal")
+            self.pick_btn.configure(text="Pick Position", state="normal")
+        else:
+            self.pick_btn.configure(text="Pick Position", state="disabled")
 
     def _poll_cursor(self) -> None:
         x, y = self._mouse.position
@@ -385,6 +431,11 @@ class ClickerPanel(ctk.CTkFrame):
         self.scroll_amount.delete(0, "end")
         self.scroll_amount.insert(0, str(s.get("scroll_amount", 3)))
 
+        self.fixed_x.configure(state="normal")
+        self.fixed_y.configure(state="normal")
+        set_entry_text(self.fixed_x, str(s.get("fixed_x", 0)))
+        set_entry_text(self.fixed_y, str(s.get("fixed_y", 0)))
+
         if s.get("position_mode") == "fixed":
             self.position_mode.set("Fixed Point")
             self._on_position_mode("Fixed Point")
@@ -392,11 +443,7 @@ class ClickerPanel(ctk.CTkFrame):
             self.position_mode.set("Current Cursor")
             self._on_position_mode("Current Cursor")
 
-        self.fixed_x.delete(0, "end")
-        self.fixed_x.insert(0, str(s.get("fixed_x", 0)))
-        self.fixed_y.delete(0, "end")
-        self.fixed_y.insert(0, str(s.get("fixed_y", 0)))
-
+        set_entry_text(self.repeat_count, str(s.get("repeat_count", 10)))
         if s.get("repeat_mode") == "count":
             self.repeat_mode.set("Fixed Count")
             self._on_repeat_mode("Fixed Count")
@@ -404,10 +451,10 @@ class ClickerPanel(ctk.CTkFrame):
             self.repeat_mode.set("Unlimited")
             self._on_repeat_mode("Unlimited")
 
-        self.repeat_count.delete(0, "end")
-        self.repeat_count.insert(0, str(s.get("repeat_count", 10)))
-        self.start_delay.delete(0, "end")
-        self.start_delay.insert(0, str(s.get("start_delay", 0)))
+        set_entry_text(self.start_delay, str(s.get("start_delay", 0)))
         self.auto_stop_block.load_config(
             AutoStopConfig.from_dict(s.get("auto_stop", {}))
         )
+
+        # Re-apply action last so titles/hints match loaded mode
+        self._on_action(action)

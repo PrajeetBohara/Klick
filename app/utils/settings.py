@@ -41,6 +41,7 @@ DEFAULTS: dict[str, Any] = {
         "start_delay": 2.0,
         "press_enter": False,
         "auto_stop": {"enabled": False, "hours": 0, "minutes": 0, "seconds": 30},
+        "fixed_text_mode": False,
     },
     "combo": {
         "steps": [],
@@ -78,6 +79,7 @@ DEFAULTS: dict[str, Any] = {
     "ui": {
         "theme": "dark",
         "active_tab": "clicker",
+        "always_on_top": False,
     },
 }
 

@@ -11,6 +11,7 @@ from app import __version__
 from app.engines import ClickerEngine, ComboEngine, JigglerEngine, TyperEngine
 from app.ui.clicker_panel import ClickerPanel
 from app.ui.combo_panel import ComboPanel
+from app.ui.help_panel import HelpPanel
 from app.ui.jiggler_panel import JigglerPanel
 from app.ui.logo import LogoPlaceholder, apply_window_icon
 from app.ui.theme import COLORS, FONTS
@@ -31,6 +32,9 @@ class MainWindow(ctk.CTk):
         self.minsize(760, 780)
         self.configure(fg_color=COLORS["bg"])
         self._window_icon = apply_window_icon(self)
+        self._apply_always_on_top(
+            bool(self.settings.get_section("ui").get("always_on_top", False))
+        )
 
         self._active_mode: Mode = "none"
         self._started_at: float | None = None
@@ -43,6 +47,7 @@ class MainWindow(ctk.CTk):
         )
         self.typer = TyperEngine(
             on_tick=self._on_typer_tick,
+            on_progress=self._on_typer_progress,
             on_status=self._on_engine_status,
             on_stopped=self._on_engine_stopped,
         )
@@ -74,6 +79,8 @@ class MainWindow(ctk.CTk):
             "typer": "Auto Typer",
             "combo": "Custom",
             "jiggler": "Jiggler",
+            "settings": "Settings",
+            "help": "Help",
             "clicker": "Auto Clicker",
         }
         self.tabview.set(tab_map.get(str(tab), "Auto Clicker"))
@@ -179,6 +186,7 @@ class MainWindow(ctk.CTk):
         self.tabview.add("Custom")
         self.tabview.add("Jiggler")
         self.tabview.add("Settings")
+        self.tabview.add("Help")
 
         self.clicker_panel = ClickerPanel(
             self.tabview.tab("Auto Clicker"),
@@ -213,6 +221,7 @@ class MainWindow(ctk.CTk):
         self.jiggler_panel.pack(fill="both", expand=True, padx=4, pady=8)
 
         self._build_settings(self.tabview.tab("Settings"))
+        HelpPanel(self.tabview.tab("Help")).pack(fill="both", expand=True, padx=4, pady=8)
         saved_hotkeys = self.settings.get_section("hotkeys")
         self._apply_hotkey_tooltips(
             str(saved_hotkeys.get("toggle", "f6")),
@@ -297,6 +306,40 @@ class MainWindow(ctk.CTk):
             command=self._save_hotkeys,
         ).pack(anchor="w", pady=(14, 0))
 
+        window_box = ctk.CTkFrame(parent, fg_color=COLORS["surface"], corner_radius=12)
+        window_box.pack(fill="x", padx=4, pady=(4, 8))
+        window_inner = ctk.CTkFrame(window_box, fg_color="transparent")
+        window_inner.pack(fill="x", padx=16, pady=14)
+        ctk.CTkLabel(
+            window_inner,
+            text="WINDOW",
+            font=FONTS["section"],
+            text_color=COLORS["muted"],
+            anchor="w",
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            window_inner,
+            text="Keep Klick visible above other apps while you configure or monitor a run.",
+            font=FONTS["body"],
+            text_color=COLORS["muted"],
+            anchor="w",
+        ).pack(anchor="w", pady=(2, 10))
+        self.always_on_top = ctk.CTkCheckBox(
+            window_inner,
+            text="Always on top",
+            font=FONTS["body"],
+            text_color=COLORS["text"],
+            fg_color=COLORS["accent"],
+            hover_color=COLORS["accent_hover"],
+            border_color=COLORS["border"],
+            command=self._on_always_on_top_toggle,
+        )
+        self.always_on_top.pack(anchor="w")
+        if self.settings.get_section("ui").get("always_on_top"):
+            self.always_on_top.select()
+        else:
+            self.always_on_top.deselect()
+
         note = ctk.CTkFrame(parent, fg_color=COLORS["surface"], corner_radius=12)
         note.pack(fill="x", padx=4, pady=(4, 8))
         note_inner = ctk.CTkFrame(note, fg_color="transparent")
@@ -312,7 +355,7 @@ class MainWindow(ctk.CTk):
             note_inner,
             text=(
                 "• Use for accessibility, testing, and workflows you control.\n"
-                "• Random intervals vary pacing; they do not hide automation.\n"
+                "• Open the Help tab for a full beginner guide to every control.\n"
                 "• Do not use to bypass anti-cheat, CAPTCHAs, or monitoring.\n"
                 "• Settings are saved to ~/.klick/settings.json"
             ),
@@ -322,6 +365,20 @@ class MainWindow(ctk.CTk):
             anchor="w",
         ).pack(anchor="w", pady=(8, 0))
 
+    def _apply_always_on_top(self, enabled: bool) -> None:
+        try:
+            self.attributes("-topmost", bool(enabled))
+        except Exception:
+            pass
+
+    def _on_always_on_top_toggle(self) -> None:
+        enabled = bool(self.always_on_top.get())
+        self._apply_always_on_top(enabled)
+        self.settings.update_section("ui", {"always_on_top": enabled})
+        self._set_status(
+            "Always on top enabled" if enabled else "Always on top disabled",
+            COLORS["success"] if enabled else COLORS["idle"],
+        )
     def _apply_hotkey_tooltips(self, toggle: str, emergency: str) -> None:
         for panel in (
             self.clicker_panel,
@@ -455,6 +512,21 @@ class MainWindow(ctk.CTk):
     def _on_typer_tick(self, count: int) -> None:
         self.after(0, lambda: self.counter_label.configure(text=f"Keys: {count}"))
 
+    def _on_typer_progress(
+        self, done: int, total: int, eta_seconds: float | None
+    ) -> None:
+        def _update() -> None:
+            if self.typer_panel.is_fixed_text_mode():
+                self.typer_panel.update_progress(done, total, eta_seconds)
+                if eta_seconds is not None:
+                    from app.engines.typer import format_duration
+
+                    self.counter_label.configure(
+                        text=f"Keys progress · left {format_duration(eta_seconds)}"
+                    )
+
+        self.after(0, _update)
+
     def _on_combo_tick(self, count: int) -> None:
         self.after(0, lambda: self.counter_label.configure(text=f"Steps: {count}"))
 
@@ -468,6 +540,7 @@ class MainWindow(ctk.CTk):
             "Typing",
             "Running combo",
             "Jiggling",
+            "Completed",
         }
         if message in active:
             color = COLORS["success"]
@@ -478,7 +551,22 @@ class MainWindow(ctk.CTk):
         self.after(0, lambda: self._set_status(message, color))
 
     def _on_engine_stopped(self) -> None:
-        self.after(0, self._finish_session)
+        def _finish() -> None:
+            was_typer = self._active_mode == "typer"
+            last_status = self.status_label.cget("text")
+            self._finish_session()
+            if was_typer:
+                if last_status == "Completed":
+                    self._set_status("Completed", COLORS["success"])
+                    self.after(
+                        1600,
+                        lambda: self._set_status("Idle", COLORS["idle"]),
+                    )
+                    self.after(1600, self.typer_panel.reset_progress)
+                else:
+                    self.typer_panel.reset_progress()
+
+        self.after(0, _finish)
 
     def _set_status(self, text: str, color: str) -> None:
         self.status_label.configure(text=text)
@@ -494,8 +582,13 @@ class MainWindow(ctk.CTk):
             "Auto Typer": "typer",
             "Custom": "combo",
             "Jiggler": "jiggler",
+            "Settings": "settings",
+            "Help": "help",
         }.get(tab, "clicker")
-        self.settings.update_section("ui", {"active_tab": active})
+        ui_update = {"active_tab": active}
+        if hasattr(self, "always_on_top"):
+            ui_update["always_on_top"] = bool(self.always_on_top.get())
+        self.settings.update_section("ui", ui_update)
 
     def _on_close(self) -> None:
         self.stop_all()
