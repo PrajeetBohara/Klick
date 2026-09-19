@@ -12,7 +12,7 @@ from app.engines import ClickerEngine, ComboEngine, JigglerEngine, TyperEngine
 from app.ui.clicker_panel import ClickerPanel
 from app.ui.combo_panel import ComboPanel
 from app.ui.jiggler_panel import JigglerPanel
-from app.ui.logo import LogoPlaceholder
+from app.ui.logo import LogoPlaceholder, apply_window_icon
 from app.ui.theme import COLORS, FONTS
 from app.ui.typer_panel import TyperPanel
 from app.utils.hotkeys import HotkeyManager
@@ -30,6 +30,7 @@ class MainWindow(ctk.CTk):
         self.geometry("820x880")
         self.minsize(760, 780)
         self.configure(fg_color=COLORS["bg"])
+        self._window_icon = apply_window_icon(self)
 
         self._active_mode: Mode = "none"
         self._started_at: float | None = None
@@ -100,7 +101,7 @@ class MainWindow(ctk.CTk):
 
         brand = ctk.CTkFrame(header, fg_color="transparent")
         brand.pack(side="left")
-        LogoPlaceholder(brand, height=48, width=160).pack(anchor="w")
+        LogoPlaceholder(brand).pack(anchor="w")
         ctk.CTkLabel(
             brand,
             text="Click · Type · Scroll · Jiggle · Custom",
