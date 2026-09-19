@@ -10,7 +10,7 @@ from pynput.mouse import Controller as MouseController
 from app.engines.combo import ComboConfig, ComboStep
 from app.ui.interval_controls import AutoStopBlock, IntervalBlock
 from app.ui.theme import COLORS, FONTS
-from app.ui.widgets import field_label, int_entry, safe_float, safe_int, section_label
+from app.ui.widgets import field_label, int_entry, safe_float, safe_int, section_label, ToolTip
 from app.utils.timing import AutoStopConfig, IntervalConfig
 
 
@@ -300,9 +300,18 @@ class ComboPanel(ctk.CTkFrame):
         )
         self.stop_btn.pack(side="left", fill="x", expand=True, padx=(6, 0))
 
+        self.start_tip = ToolTip(self.start_btn)
+        self.stop_tip = ToolTip(self.stop_btn)
+
         self._on_step_action("Click")
         self._on_step_position("Current Cursor")
         self._on_repeat_mode("Once")
+
+    def set_hotkey_tooltips(self, toggle_key: str, emergency_key: str) -> None:
+        toggle = toggle_key.upper()
+        emergency = emergency_key.upper()
+        self.start_tip.set_text(f"Start / Stop  ·  Shortcut: {toggle}")
+        self.stop_tip.set_text(f"Stop  ·  Shortcut: {emergency} (emergency)")
 
     def _coord(self, parent: ctk.CTkFrame, label: str, default: str) -> ctk.CTkEntry:
         col = ctk.CTkFrame(parent, fg_color="transparent")

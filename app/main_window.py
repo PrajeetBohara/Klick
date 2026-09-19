@@ -7,11 +7,12 @@ from typing import Literal
 
 import customtkinter as ctk
 
-from app import __app_name__, __version__
+from app import __version__
 from app.engines import ClickerEngine, ComboEngine, JigglerEngine, TyperEngine
 from app.ui.clicker_panel import ClickerPanel
 from app.ui.combo_panel import ComboPanel
 from app.ui.jiggler_panel import JigglerPanel
+from app.ui.logo import LogoPlaceholder
 from app.ui.theme import COLORS, FONTS
 from app.ui.typer_panel import TyperPanel
 from app.utils.hotkeys import HotkeyManager
@@ -25,7 +26,7 @@ class MainWindow(ctk.CTk):
         super().__init__()
         self.settings = SettingsStore()
 
-        self.title(f"{__app_name__}  ·  Enterprise Automation")
+        self.title("KLICK")
         self.geometry("820x880")
         self.minsize(760, 780)
         self.configure(fg_color=COLORS["bg"])
@@ -99,20 +100,14 @@ class MainWindow(ctk.CTk):
 
         brand = ctk.CTkFrame(header, fg_color="transparent")
         brand.pack(side="left")
-        ctk.CTkLabel(
-            brand,
-            text=__app_name__.upper(),
-            font=FONTS["title"],
-            text_color=COLORS["text"],
-            anchor="w",
-        ).pack(anchor="w")
+        LogoPlaceholder(brand, height=48).pack(anchor="w")
         ctk.CTkLabel(
             brand,
             text="Click · Type · Scroll · Jiggle · Custom",
             font=FONTS["subtitle"],
             text_color=COLORS["muted"],
             anchor="w",
-        ).pack(anchor="w")
+        ).pack(anchor="w", pady=(6, 0))
 
         meta = ctk.CTkFrame(header, fg_color="transparent")
         meta.pack(side="right")
@@ -217,6 +212,11 @@ class MainWindow(ctk.CTk):
         self.jiggler_panel.pack(fill="both", expand=True, padx=4, pady=8)
 
         self._build_settings(self.tabview.tab("Settings"))
+        saved_hotkeys = self.settings.get_section("hotkeys")
+        self._apply_hotkey_tooltips(
+            str(saved_hotkeys.get("toggle", "f6")),
+            str(saved_hotkeys.get("emergency_stop", "f7")),
+        )
 
         footer = ctk.CTkLabel(
             root,
@@ -321,6 +321,15 @@ class MainWindow(ctk.CTk):
             anchor="w",
         ).pack(anchor="w", pady=(8, 0))
 
+    def _apply_hotkey_tooltips(self, toggle: str, emergency: str) -> None:
+        for panel in (
+            self.clicker_panel,
+            self.typer_panel,
+            self.combo_panel,
+            self.jiggler_panel,
+        ):
+            panel.set_hotkey_tooltips(toggle, emergency)
+
     def _save_hotkeys(self) -> None:
         toggle = self.toggle_key.get().strip().lower() or "f6"
         emergency = self.emergency_key.get().strip().lower() or "f7"
@@ -331,6 +340,7 @@ class MainWindow(ctk.CTk):
         self.hotkey_label.configure(
             text=f"{toggle.upper()} Start/Stop  ·  {emergency.upper()} Emergency Stop"
         )
+        self._apply_hotkey_tooltips(toggle, emergency)
         self._set_status("Hotkeys saved", COLORS["success"])
 
     def start_clicker(self) -> None:

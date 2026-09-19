@@ -9,7 +9,7 @@ import customtkinter as ctk
 from app.engines.jiggler import JigglerConfig
 from app.ui.interval_controls import AutoStopBlock, IntervalBlock
 from app.ui.theme import COLORS, FONTS
-from app.ui.widgets import field_label, int_entry, safe_float, safe_int, section_label
+from app.ui.widgets import field_label, int_entry, safe_float, safe_int, section_label, ToolTip
 from app.utils.timing import AutoStopConfig, IntervalConfig
 
 
@@ -157,6 +157,14 @@ class JigglerPanel(ctk.CTkFrame):
             state="disabled",
         )
         self.stop_btn.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        self.start_tip = ToolTip(self.start_btn)
+        self.stop_tip = ToolTip(self.stop_btn)
+
+    def set_hotkey_tooltips(self, toggle_key: str, emergency_key: str) -> None:
+        toggle = toggle_key.upper()
+        emergency = emergency_key.upper()
+        self.start_tip.set_text(f"Start / Stop  ·  Shortcut: {toggle}")
+        self.stop_tip.set_text(f"Stop  ·  Shortcut: {emergency} (emergency)")
 
     def _on_radius(self, value: float) -> None:
         self.radius_label.configure(text=f"{int(round(value))} px")
