@@ -100,7 +100,7 @@ class MainWindow(ctk.CTk):
 
         brand = ctk.CTkFrame(header, fg_color="transparent")
         brand.pack(side="left")
-        LogoPlaceholder(brand, height=48).pack(anchor="w")
+        LogoPlaceholder(brand, height=48, width=160).pack(anchor="w")
         ctk.CTkLabel(
             brand,
             text="Click · Type · Scroll · Jiggle · Custom",
